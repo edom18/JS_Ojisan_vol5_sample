@@ -61,6 +61,9 @@ THREE.VRControls = function ( object, callback ) {
 
 		if ( state.position !== null ) {
 
+            state.position.x += window.deltaX;
+            state.position.y += window.deltaY;
+
 			object.position.copy( state.position ).multiplyScalar( scope.scale );
 
 		}

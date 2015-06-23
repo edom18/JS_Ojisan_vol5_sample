@@ -22,10 +22,14 @@
  */
 THREE.VREffect = function ( renderer, done ) {
 
+    var ua = navigator.userAgent.toLowerCase();
+    var isSP = !!(~ua.indexOf('iphone') || ~ua.indexOf('ipad') || ~ua.indexOf('android'));
+
 	var cameraLeft = new THREE.PerspectiveCamera();
 	var cameraRight = new THREE.PerspectiveCamera();
 
 	this._renderer = renderer;
+    this._devicePixelRatio = renderer.getPixelRatio();
 
 	this._init = function() {
 		var self = this;
@@ -51,6 +55,7 @@ THREE.VREffect = function ( renderer, done ) {
 					self.rightEyeTranslation = vrHMD.getEyeTranslation( "right" );
 					self.leftEyeFOV = vrHMD.getRecommendedEyeFieldOfView( "left" );
 					self.rightEyeFOV = vrHMD.getRecommendedEyeFieldOfView( "right" );
+
 					break; // We keep the first we encounter
 				}
 			}
@@ -73,6 +78,10 @@ THREE.VREffect = function ( renderer, done ) {
 			this.renderStereo.apply( this, arguments );
 			return;
 		}
+        else if (isSP) {
+			this.renderStereo.apply( this, arguments );
+			return;
+        }
 		// Regular render mode if not HMD
 		if ( scene instanceof Array ) scene = scene[ 0 ];
 		renderer.render.apply( this._renderer, arguments );
@@ -97,8 +106,8 @@ THREE.VREffect = function ( renderer, done ) {
 		var leftEyeTranslation = this.leftEyeTranslation;
 		var rightEyeTranslation = this.rightEyeTranslation;
 		var renderer = this._renderer;
-		var rendererWidth = renderer.context.drawingBufferWidth;
-		var rendererHeight = renderer.context.drawingBufferHeight;
+		var rendererWidth = renderer.context.drawingBufferWidth   / this._devicePixelRatio;
+		var rendererHeight = renderer.context.drawingBufferHeight / this._devicePixelRatio;
 		var eyeDivisionLine = rendererWidth / 2;
 
 		renderer.enableScissorTest( true );
@@ -107,6 +116,31 @@ THREE.VREffect = function ( renderer, done ) {
 		if ( camera.parent === undefined ) {
 			camera.updateMatrixWorld();
 		}
+
+        // HMDがない場合のエミュレート値
+        this.leftEyeFOV || (this.leftEyeFOV = {
+            downDegrees: 53.04646682739258,
+            leftDegrees: 46.63209533691406,
+            rightDegrees: 47.52769470214844,
+            upDegrees: 53.04646682739258
+        });
+        this.rightEyeFOV || (this.rightEyeFOV = {
+            downDegrees: 53.04646682739258,  
+            leftDegrees: 47.52769470214844,
+            rightDegrees: 46.63209533691406,
+            upDegrees: 53.04646682739258
+        });
+
+        // HMDがない場合のエミュレート値
+        leftEyeTranslation || (leftEyeTranslation = {
+            x: -0.03200000151991844,
+            y: 0
+        });
+        rightEyeTranslation || (rightEyeTranslation = {
+            x: 0.03200000151991844,
+            y: 0
+        });
+
 
 		cameraLeft.projectionMatrix = this.FovToProjection( this.leftEyeFOV, true, camera.near, camera.far );
 		cameraRight.projectionMatrix = this.FovToProjection( this.rightEyeFOV, true, camera.near, camera.far );

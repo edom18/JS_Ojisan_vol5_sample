@@ -2,6 +2,12 @@
 
     'use strict';
 
+    window.deltaX = 0;
+    window.deltaY = 0;
+
+    var ua = navigator.userAgent.toLowerCase();
+    var isSP = !!(~ua.indexOf('iphone') || ~ua.indexOf('ipad') || ~ua.indexOf('android'));
+
     /////////////////////////////////////////////////////////////////////////////
     // Renderer
     var renderer = new THREE.WebGLRenderer({antialias: true});
@@ -17,15 +23,22 @@
     /////////////////////////////////////////////////////////////////////////////
     // Scene and Camera
     var scene  = new THREE.Scene();
-    var camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.z = 100;
-    camera.lookAt(new THREE.Vector3(0, 0, 0));
+    var camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 10000);
 
 
     /////////////////////////////////////////////////////////////////////////////
     // Controlls
-    var controls = new THREE.OrbitControls(camera); 
+    // var controls = new THREE.OrbitControls(camera); 
 
+    var spControls = null;
+    if (isSP) {
+        spControls = new THREE.DeviceOrientationControls(camera);
+        spControls.connect();
+    }
+
+    var vrControls = new THREE.VRControls(camera);
+    var effects    = new THREE.VREffect(renderer);
+    effects.setSize(window.innerWidth, window.innerHeight);
 
     /////////////////////////////////////////////////////////////////////////////
     // lights
@@ -36,10 +49,39 @@
     var ambient = new THREE.AmbientLight(0x666666);
     scene.add(ambient);
 
+    var urls = [
+        'textures/skybox/px.jpg', // right
+        'textures/skybox/nx.jpg', // left
+        'textures/skybox/py.jpg', // top
+        'textures/skybox/ny.jpg', // bottom
+        'textures/skybox/pz.jpg', // back
+        'textures/skybox/nz.jpg'  // front
+    ];
+    var size = 8000;
+
+    var skyboxCubemap = THREE.ImageUtils.loadTextureCube(urls);
+    skyboxCubemap.format = THREE.RGBFormat;
+
+    var skyboxShader = THREE.ShaderLib.cube;
+    skyboxShader.uniforms.tCube.value = skyboxCubemap;
+
+    var skyBox = new THREE.Mesh(
+            new THREE.BoxGeometry(size, size, size),
+            new THREE.ShaderMaterial({
+                fragmentShader: skyboxShader.fragmentShader,
+                vertexShader  : skyboxShader.vertexShader,
+                uniforms      : skyboxShader.uniforms,
+                depthWrite    : false,
+                side          : THREE.BackSide
+            })
+        );
+    scene.add(skyBox);
+
 
     /////////////////////////////////////////////////////////////////////////////
     // Models
     var model = new THREE.Object3D();
+    model.position.z = -100;
     scene.add(model);
 
     var loader = new THREE.JSONLoader();
@@ -57,13 +99,48 @@
         model.add(mesh);
     });
 
+    document.addEventListener('click', function (e) {
+        effects.setFullScreen(true);
+    }, false);
+
+    var dragging = false;
+    var prevX = 0;
+    var prevY = 0;
+    document.addEventListener('mousedown', function (e) {
+        dragging = true;
+        prevX = e.pageX;
+        prevY = e.pageY;
+    }, false);
+    document.addEventListener('mouseup', function (e) {
+        dragging = false;
+    }, false);
+    document.addEventListener('mousemove', function (e) {
+        if (!dragging) {return;}
+
+        var deltaX = e.pageX - prevX;
+        var deltaY = e.pageY - prevY;
+
+        window.deltaX += deltaX;
+        window.deltaY += deltaY;
+
+        prevX = e.pageX;
+        prevY = e.pageY;
+    }, false);
+
 
     /////////////////////////////////////////////////////////////////////////////
     // Animations
     (function loop() {
-        renderer.render(scene, camera);
+        effects.render(scene, camera);
+        // renderer.render(scene, camera);
 
-        controls.update();
+        // controls.update();
+        if (isSP) {
+            spControls.update();
+        }
+        else {
+            vrControls.update();
+        }
 
         requestAnimationFrame(loop);
     }());
