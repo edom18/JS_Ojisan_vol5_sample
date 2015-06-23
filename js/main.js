@@ -115,7 +115,7 @@
         dragging = false;
     }, false);
     document.addEventListener('mousemove', function (e) {
-        if (!dragging) {return;}
+        if (!dragging) { return; }
 
         var deltaX = e.pageX - prevX;
         var deltaY = e.pageY - prevY;
