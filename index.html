@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="ja">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <title>Fire</title>
+        <style>
+            canvas {
+                vertical-align: top;
+            }
+            body, div, p {
+                margin: 0;
+                padding: 0;
+            }
+        </style>
+
+        <script id="vs" type="x-shader/x-vertex">
+            // attribute vec3 pos;
+            attribute vec3 tex;
+
+            // uniform mat4 projectionMatrix;
+            // uniform mat4 modelViewMatrix;
+
+            varying vec3 texOut;
+
+            void main(void) {
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                texOut = vec3(1.0, 0.5, 0.3); //tex;
+                // texOut = tex;
+            }
+        </script>
+
+        <script id="fs" type="x-shader/x-fragment">
+
+            precision highp float;
+
+            // Pregenerated noise texture.
+            uniform sampler2D nzw;
+            uniform sampler2D fireProfile;
+            uniform float time;
+
+            varying vec3 texOut;
+
+
+            const float modulus = 61.0;  // Value used in pregenerated noise texture.
+
+            // Modified Blum Blum Shub pseudo-random number generator.
+            //// ランダム数値生成器？
+            vec2 mBBS(vec2 val, float modulus) {
+                val = mod(val, modulus); // For numerical consistancy.
+                return mod(val * val, modulus);
+            }
+
+            /**
+             * Modified noise function.
+             * @see http://www.csee.umbc.edu/~olano/papers/index.html#mNoise
+             **/
+            //// 事前に生成したノイズテクスチャからランダムにテクセルをフェッチ
+            float mnoise(vec3 pos) {
+                float intArg = floor(pos.z);
+                float fracArg = fract(pos.z);
+                vec2 hash = mBBS(intArg * 3.0 + vec2(0, 3), modulus);
+                vec4 g = vec4(texture2D(nzw, vec2(pos.x, pos.y + hash.x) / modulus).xy,
+                              texture2D(nzw, vec2(pos.x, pos.y + hash.y) / modulus).xy) * 2.0 - 1.0;
+                return mix(g.x + g.y * fracArg,
+                           g.z + g.w * (fracArg - 1.0),
+                           smoothstep(0.0, 1.0, fracArg));
+            }
+
+            const int octives = 4;
+            const float lacunarity = 2.0;
+            const float gain = 0.5;
+
+            /**
+             * Adds multiple octives of noise together.
+             **/
+            //// 雰囲気的にパーリンノイズ風？
+            float turbulence(vec3 pos) {
+                float sum = 0.0;
+                float freq = 1.0;
+                float amp = 1.0;
+                for(int i = 0; i < octives; i++) {
+                    sum += abs(mnoise(pos * freq)) * amp;
+                    freq *= lacunarity;
+                    amp *= gain;
+                }
+                return sum;
+            }
+
+            const float magnatude = 1.3;
+
+            /**
+             * Samples the fire.
+             *
+             * @param loc the normalized location (0.0-1.0) to sample the fire
+             * @param scale the 'size' of the fire in world space and time
+             **/
+            //// 炎テクスチャからランダムにテクセルをフェッチ
+            vec4 sampleFire(vec3 loc, vec4 scale) {
+                // Convert xz to [-1.0, 1.0] range.
+                loc.xz = loc.xz * 2.0 - 1.0;
+
+                // Convert to (radius, height) to sample fire profile texture.
+                vec2 st = vec2(sqrt(dot(loc.xz, loc.xz)), loc.y);
+
+                // Convert loc to 'noise' space
+                loc.y -= time * scale.w; // Scrolling noise upwards over time.
+                loc *= scale.xyz; // Scaling noise space.
+
+                // Offsetting vertial texture lookup.
+                // We scale this by the sqrt of the height so that things are
+                // relatively stable at the base of the fire and volital at the
+                // top.
+                //// turbulance = 乱流。おそらく参照点に揺らぎを加味してサンプルしている。
+                //// st.y == loc.y。st生成時にYは補正していない。意味的にはfire textureの高さ？
+                float offset = sqrt(st.y) * magnatude * turbulence(loc);
+                st.y += offset;
+
+                // TODO: Update fireProfile texture to have a black row of pixels.
+                // 高さが1.0を超えた場合はblack pixelにする。
+                if (st.y > 1.0) {
+                    return vec4(0, 0, 0, 1);
+                }
+
+                //// 計算した結果のポイントをサンプリング。
+                vec4 result = texture2D(fireProfile, st);
+
+                // Fading out bottom so slice clipping isnt obvious
+                if (st.y < .1) {
+                    result *= st.y / 0.1;
+                }
+
+                return result;
+            }
+
+            void main(void) {
+                // Mapping texture coordinate to -1 => 1 for xy, 0=> 1 for y
+                vec3 color = sampleFire(texOut, vec4(1.0, 2.0, 1.0, 0.5)).xyz;
+                // float r = mod(time, 1.0);
+                gl_FragColor = vec4(color.r, color.g, 0.5, 1.0);
+                // gl_FragColor = vec4(color * .25, 1);
+                // gl_FragColor = vec4(1.0, 0.3, 0.0, 1.0);
+            }
+
+        </script>
+
+        <!-- lib -->
+        <script src="js/three.min.js"></script>
+        <script src="js/OrbitControls.js"></script>
+    </head>
+<body>
+    <script src="js/main.js"></script>
+</body>
+</html>
