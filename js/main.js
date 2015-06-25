@@ -163,6 +163,12 @@
             prevX = e.pageX;
             prevY = e.pageY;
         }, false);
+
+        window.addEventListener('resize', function (e) {
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setViewport(0, 0, window.innerWidth, window.innerHeight);
+            renderer.setScissor(0, 0, window.innerWidth, window.innerHeight);
+        }, false);
     }
 
 
