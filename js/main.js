@@ -99,38 +99,83 @@
         model.add(mesh);
     });
 
-    document.addEventListener('click', function (e) {
-        effects.setFullScreen(true);
-    }, false);
+    /////////////////////////////////////////////////////////////////////////////
+    // Cubes
+    var cubes = [];
+    var mat = new THREE.MeshPhongMaterial({
+        color: 0xcccccc
+    });
 
-    var dragging = false;
-    var prevX = 0;
-    var prevY = 0;
-    document.addEventListener('mousedown', function (e) {
-        dragging = true;
-        prevX = e.pageX;
-        prevY = e.pageY;
-    }, false);
-    document.addEventListener('mouseup', function (e) {
-        dragging = false;
-    }, false);
-    document.addEventListener('mousemove', function (e) {
-        if (!dragging) { return; }
+    function random() {
+        var x = Math.random();
+        return x * 2 - 1;
+    }
 
-        var deltaX = e.pageX - prevX;
-        var deltaY = e.pageY - prevY;
+    var num = 50;
+    var scale = 100;
+    for (var i = 0; i < num; i++) {
+        var geo  = new THREE.BoxGeometry(3, 3, 3);
+        var mesh = new THREE.Mesh(geo, mat);
 
-        window.deltaX += deltaX;
-        window.deltaY += deltaY;
+        var x = random();
+        var y = random();
+        var z = random() * -1;
 
-        prevX = e.pageX;
-        prevY = e.pageY;
-    }, false);
+        mesh.rotation.set(x, y, z);
+
+        x *= scale;
+        y *= scale;
+        z *= scale;
+        mesh.position.set(x, y, z);
+
+        scene.add(mesh);
+        cubes.push(mesh);
+    }
+
+
+    /////////////////////////////////////////////////////////////////////////////
+    // Event handling.
+    {
+        document.addEventListener('click', function (e) {
+            effects.setFullScreen(true);
+        }, false);
+
+        var dragging = false;
+        var prevX = 0;
+        var prevY = 0;
+        document.addEventListener('mousedown', function (e) {
+            dragging = true;
+            prevX = e.pageX;
+            prevY = e.pageY;
+        }, false);
+        document.addEventListener('mouseup', function (e) {
+            dragging = false;
+        }, false);
+        document.addEventListener('mousemove', function (e) {
+            if (!dragging) { return; }
+
+            var deltaX = e.pageX - prevX;
+            var deltaY = e.pageY - prevY;
+
+            window.deltaX += deltaX;
+            window.deltaY += deltaY;
+
+            prevX = e.pageX;
+            prevY = e.pageY;
+        }, false);
+    }
 
 
     /////////////////////////////////////////////////////////////////////////////
     // Animations
     (function loop() {
+
+        cubes.forEach(function (cube, i) {
+            cube.rotation.x += 0.01;
+            cube.rotation.y += 0.02;
+            cube.rotation.z += 0.03;
+        });
+
         effects.render(scene, camera);
         // renderer.render(scene, camera);
 
